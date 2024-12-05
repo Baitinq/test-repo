@@ -1,0 +1,17 @@
+name: CI/CD with Manual Approval
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: TEST_APPROVALS
+    steps:
+      - name: My Manual Approval step
+        run: sleep 5

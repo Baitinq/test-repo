@@ -1,0 +1,14 @@
+name: CI
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: matrix ${{ matrix.version }}
+    strategy:
+      matrix:
+        version: [10, 12, 14]
+    steps:
+      - uses: actions/checkout@v3
+      - run: sleep ${{ matrix.version }}

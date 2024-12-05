@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="2" failures="0" errors="0" time="0.430965">
+	<testsuite tests="2" failures="0" time="0.000000" name="ci-visibility-test-github/main/additions" timestamp="2024-11-28T12:39:41+01:00">
+		<properties>
+			<property name="go.version" value="go1.23.2 darwin/arm64"></property>
+		</properties>
+		<testcase classname="ci-visibility-test-github/main/additions" name="Test_AddNumbers" time="0.000000"></testcase>
+		<testcase classname="ci-visibility-test-github/main/additions" name="Test_AddNumbers2" time="0.000000"></testcase>
+	</testsuite>
+</testsuites>

@@ -1,0 +1,15 @@
+name: Printing env variables
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: printer
+    steps:
+      - name: Print GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Print github_sha
+        run: echo "$GITHUB_SHA"

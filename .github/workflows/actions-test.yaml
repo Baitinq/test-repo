@@ -1,0 +1,158 @@
+name: Testing Github actions
+on: [push]
+
+jobs:
+
+  datadog-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install node
+        uses: actions/setup-node@v3
+      - run: yarn global add @datadog/datadog-ci
+      - run: DD_API_KEY=${{ secrets.DD_API_KEY }} DD_APP_KEY=${{ secrets.DD_APP_KEY }} DD_SITE='datad0g.com' DD_TAGS='team:civisibility,service:my-custom-service-3' datadog-ci tag --level pipeline
+      - run: DD_API_KEY=${{ secrets.DD_API_KEY }} DD_APP_KEY=${{ secrets.DD_APP_KEY }} DD_SITE='datad0g.com' datadog-ci metric --level pipeline --metrics image_size:150
+      - run: DD_API_KEY=${{ secrets.DD_API_KEY_PROD }} DD_APP_KEY=${{ secrets.DD_APP_KEY_PROD }} datadog-ci tag --level pipeline --tags team:civisibility
+      - run: DD_API_KEY=${{ secrets.DD_API_KEY_PROD }} DD_APP_KEY=${{ secrets.DD_APP_KEY_PROD }} datadog-ci metric --level pipeline --metrics image_size:150
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - run: go build ./main/...
+
+  test-additions:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - run: go install gotest.tools/gotestsum@latest
+      - run: gotestsum --junitfile additions-test.xml ./main/additions/...
+      - name: Uploading test results
+        if: always()
+        run: |
+            yarn global add @datadog/datadog-ci
+            export DATADOG_API_KEY=${{ secrets.DD_API_KEY }}
+            export DATADOG_SITE='datad0g.com'
+            export DD_ENV=ci-tests-ubuntu-latest
+            datadog-ci junit upload --service ci-visibility-test-additions --report-tags test_level:session --report-metrics=test.code_coverage.lines_pct:85 additions-test.xml
+  
+  test-subtractions:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - run: go install gotest.tools/gotestsum@latest
+      - run: gotestsum --junitfile subtractions-test.xml ./main/subtractions/...
+      - name: Uploading test results
+        if: always()
+        run: |
+            yarn global add @datadog/datadog-ci
+            export DATADOG_API_KEY=${{ secrets.DD_API_KEY }}
+            export DATADOG_SITE='datad0g.com'
+            export DD_ENV=ci-tests-ubuntu-latest
+            datadog-ci junit upload --service ci-visibility-test-subtractions --report-tags test_level:session --report-metrics=test.code_coverage.lines_pct:25 subtractions-test.xml
+  
+  test-subtractions-2:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - run: go install gotest.tools/gotestsum@latest
+      - run: gotestsum --junitfile subtractions-test.xml ./main/subtractions/...
+      - name: Uploading test results
+        if: always()
+        run: |
+            yarn global add @datadog/datadog-ci
+            export DATADOG_API_KEY=${{ secrets.DD_API_KEY }}
+            export DATADOG_SITE='datad0g.com'
+            export DD_ENV=ci-tests-ubuntu-latest
+            datadog-ci junit upload --service ci-visibility-test-subtractions --report-tags test_level:session --report-tags runtime.version:test --report-metrics=test.code_coverage.lines_pct:44 subtractions-test.xml
+
+  python-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install pytest ddtrace coverage
+      - name: Configure Datadog Test Visibility
+        uses: datadog/test-visibility-github-action@v2
+        with:
+          languages: python
+          api_key: ${{ secrets.DD_API_KEY }}
+          site: datad0g.com
+      - name: Running tests
+        if: always()
+        run: pytest
+  
+  tagged_job:
+    runs-on: ubuntu-latest
+    name: Custom tagged job
+    env:
+      DD_GITHUB_JOB_NAME: Custom tagged job
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install node
+        uses: actions/setup-node@v3
+      - run: yarn global add @datadog/datadog-ci
+      - run: >
+          DATADOG_API_KEY=${{ secrets.DD_API_KEY }}
+          DATADOG_SITE='datad0g.com'
+          datadog-ci tag --level job --tags "custom_tag:1234"
+
+  datadog-gate:
+    needs: [test-additions, test-subtractions, test-subtractions-2, python-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install node
+        uses: actions/setup-node@v3
+      - run: yarn global add @datadog/datadog-ci
+      - run: >
+          DD_API_KEY=${{ secrets.DD_API_KEY }}
+          DD_APP_KEY=${{ secrets.DD_APP_KEY }}
+          DD_SITE='datad0g.com'
+          datadog-ci gate evaluate --scope=team:backend --scope=team:frontend
+  datadog-frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run frontend tests
+        uses: actions/setup-node@v3
+      - run: yarn global add @datadog/datadog-ci
+      - run: >
+          DATADOG_API_KEY=${{ secrets.DD_API_KEY }}
+          DATADOG_SITE='datad0g.com'
+          datadog-ci tag --level pipeline --tags team:ci-visibility-app
+
+  test-additions-with-ddtrace:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - name: Uploading test results
+        if: always()
+        run: |
+            export DD_API_KEY=${{ secrets.DD_API_KEY }}
+            export DD_SITE='datad0g.com'
+            export DD_SERVICE=ci-visibility-additions-ddtrace
+            export DD_CIVISIBILITY_AGENTLESS_ENABLED=true
+            go test ./main/additions/...
