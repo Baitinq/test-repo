@@ -1,5 +1,5 @@
 name: Testing Github actions
-on: [push]
+on: [pull_request]
 
 jobs:
 
